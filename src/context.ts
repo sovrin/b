@@ -1,7 +1,8 @@
 import { dirname } from 'node:path';
 
+import type { Store } from './bookmarks/model.ts';
+
 import { ctxDir, ctxFile, recentFile } from './paths.ts';
-import type { Store } from './store.ts';
 
 const RECENT_MAX = 20;
 

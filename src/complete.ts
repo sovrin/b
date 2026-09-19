@@ -1,7 +1,8 @@
 import { join, resolve } from 'node:path';
 
+import { entries, resolveQuery, type Store } from './bookmarks/model.ts';
+import { load } from './bookmarks/repository.ts';
 import { tildify } from './paths.ts';
-import { entries, load, resolveQuery, type Store } from './store.ts';
 
 /**
  * Machine-readable completion backend. The shell script stays dumb: it forwards

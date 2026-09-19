@@ -39,6 +39,3 @@ export function warn(msg: string): void {
 export function fail(msg: string): void {
     console.error(`${red('✗')} ${msg}`);
 }
-
-/** Thrown for expected, user-facing failures; cli.ts prints it without a stack. */
-export class UserError extends Error {}
