@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "exports": "./src/cli.ts",
   "tasks": {
+    "check": "deno check src/cli.ts",
+    "test": "deno test --allow-read --allow-write --allow-env --allow-run=deno src/",
     "setup": "deno run --allow-read --allow-write --allow-env --allow-run=deno src/cli.ts setup",
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run=deno src/cli.ts",
     "install": "deno install -g -f -q --allow-read --allow-write --allow-env --allow-run=deno -n b ./src/cli.ts",

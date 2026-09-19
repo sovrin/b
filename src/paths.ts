@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 
 /** $HOME, read from the environment so no --allow-sys is needed. */
 export function homedir(): string {
@@ -76,4 +76,10 @@ export function starshipConfig(): string {
     const custom = Deno.env.get('STARSHIP_CONFIG');
     if (custom !== undefined && custom.length > 0) return custom;
     return join(homedir(), '.config', 'starship.toml');
+}
+
+/** Turn a user-supplied path into an absolute one. */
+export function absPath(p: string, cwd = Deno.cwd()): string {
+    const expanded = untildify(p);
+    return isAbsolute(expanded) ? resolve(expanded) : resolve(cwd, expanded);
 }
