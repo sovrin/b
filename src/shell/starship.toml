@@ -1,0 +1,8 @@
+# >>> b (path bookmarks) >>>
+# Shows the active b context. B_CTX is set by b's zsh wrapper and cleared when
+# you leave the context's directory tree, so this segment costs no subprocess.
+[env_var.B_CTX]
+symbol = "⌂"
+format = "\\[[$symbol $env_value]($style)\\]"
+style = "bold purple"
+# <<< b (path bookmarks) <<<

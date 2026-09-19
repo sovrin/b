@@ -1,0 +1,19 @@
+{
+  "name": "b",
+  "version": "0.1.0",
+  "exports": "./src/cli.ts",
+  "tasks": {
+    "setup": "deno run --allow-read --allow-write --allow-env --allow-run=deno src/cli.ts setup",
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-run=deno src/cli.ts",
+    "install": "deno install -g -f -q --allow-read --allow-write --allow-env --allow-run=deno -n b ./src/cli.ts",
+    "uninstall": "deno uninstall -g b",
+    "lint": "deno run -A npm:oxlint@^1.70 src/",
+    "lint:fix": "deno run -A npm:oxlint@^1.70 --fix src/",
+    "format": "deno run -A npm:oxfmt@^0.55 src/",
+    "format:check": "deno run -A npm:oxfmt@^0.55 --check src/"
+  },
+  "imports": {
+    "oxlint": "npm:oxlint@^1.83",
+    "oxfmt": "npm:oxfmt@^0.68"
+  }
+}
