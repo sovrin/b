@@ -36,6 +36,7 @@ export function usage(): void {
     l('b starship', 'print the starship segment');
     l('b doctor', 'check the installation');
     l('b completions zsh', 'print the completion/wrapper script');
+    l('b version', 'print the version');
     info('');
     info(`${dim('Tab-complete everything:')} ${cyan('b <TAB>')}`);
 }

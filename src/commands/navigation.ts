@@ -1,7 +1,7 @@
-import type { Store } from '../bookmarks/model.ts';
 import type { BookmarkRepository } from '../bookmarks/repository.ts';
 import type { ShellAction } from '../shell/protocol.ts';
 
+import { type Store, underRoot } from '../bookmarks/model.ts';
 import { requireBookmark } from '../bookmarks/resolve.ts';
 import { UserError } from '../errors.ts';
 import { bold, info, ok } from '../output.ts';
@@ -29,6 +29,12 @@ export function createNavigationCommands(
         const root = store.bookmarks[res.name]!.path;
         let target: string;
         if (res.sub !== '') {
+            // The context would end the moment the shell arrived, so refuse up front.
+            if (!underRoot(res.path, root)) {
+                throw new UserError(
+                    `"${query}" leads outside ${bold(res.name)} — use \`cd\` for that`,
+                );
+            }
             target = res.path;
         } else if (contexts.activeCtx() === res.name) {
             // Already here: treat a repeat as "go home".

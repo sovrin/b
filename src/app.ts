@@ -13,7 +13,7 @@ import { createNavigationCommands } from './commands/navigation.ts';
 import { complete } from './complete.ts';
 import * as contexts from './context.ts';
 import { UserError } from './errors.ts';
-import { emitShell } from './shell/protocol.ts';
+import { emitShell, syncShell } from './shell/protocol.ts';
 
 type Command = (args: string[]) => number | Promise<number>;
 
@@ -48,7 +48,9 @@ export async function run(args: string[]): Promise<number> {
         usage();
         return 0;
     }
-    const bookmarks = createBookmarkCommands(repository, contexts);
+    const bookmarks = createBookmarkCommands(repository, contexts, (action) => {
+        syncShell(action, fromShell);
+    });
     const navigation = createNavigationCommands(
         repository,
         contexts,
@@ -76,6 +78,10 @@ export async function run(args: string[]): Promise<number> {
         starship: starshipCommand,
         completions: completionsCommand,
         'shell-init': completionsCommand,
+        version: () => {
+            console.log(VERSION);
+            return 0;
+        },
         '=': navigation.switchBack,
         off: navigation.off,
     };

@@ -48,6 +48,13 @@ export function validateName(name: string): string | null {
     return null;
 }
 
+/** True when `path` is the root itself or somewhere beneath it. */
+export function underRoot(path: string, root: string): boolean {
+    return (
+        path === root || path.startsWith(root.endsWith('/') ? root : `${root}/`)
+    );
+}
+
 /** Sorted [name, bookmark] pairs. */
 export function entries(store: Store): [string, Bookmark][] {
     return Object.entries(store.bookmarks).sort((a, b) => {

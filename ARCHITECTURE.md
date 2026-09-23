@@ -11,6 +11,7 @@ Commands, aliases, bookmark storage, and the shell protocol retain their existin
 | `src/bookmarks/model.ts` | Bookmark types, name validation, sorting, and query resolution without I/O |
 | `src/bookmarks/repository.ts` | Storage contract and JSON file persistence |
 | `src/bookmarks/resolve.ts` | Shared user-facing resolution failures |
+| `src/bookmarks/marks.ts` | Reading the older cd_mark symlink store for import |
 | `src/context.ts` | Shell environment, remembered directories, and recent context persistence |
 | `src/shell/` | Shell assets and directive output |
 | `src/setup/` | Installation orchestration, binary installation, zshrc editing, Starship integration, and diagnostics |
@@ -18,8 +19,10 @@ Commands, aliases, bookmark storage, and the shell protocol retain their existin
 | `src/paths.ts`, `src/output.ts`, `src/errors.ts` | Path conventions, terminal presentation, and expected failures |
 
 Command factories receive a small bookmark repository contract and only the context
-operations they use. Navigation also accepts a shell-action callback, so its behavior
-can be exercised with in-memory storage and recorded actions. `app.ts` supplies the
+operations they use. Navigation and bookmark commands also accept a shell-action
+callback (bookmark commands use it to keep the wrapper's context variables in step
+after a rename or removal), so their behavior can be exercised with in-memory
+storage and recorded actions. `app.ts` supplies the
 file-backed implementations. The domain model does not depend on terminal output,
 Deno, or persistence.
 
@@ -30,5 +33,5 @@ shell assets remain lazily loaded by their command adapters.
 
 Run `deno task check`, `deno task test`, `deno task lint`, and
 `deno task format:check` to validate changes. Tests cover query rules, navigation
-with substituted dependencies, managed zshrc blocks, and CLI workflows using
-temporary configuration directories. The CLI test does not install a global shim.
+and bookmark commands with substituted dependencies, managed zshrc blocks, and CLI
+workflows using temporary configuration directories. The CLI test does not install a global shim.

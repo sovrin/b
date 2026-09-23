@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 
-import { resolveQuery, type Store, validateName } from './model.ts';
+import { resolveQuery, type Store, underRoot, validateName } from './model.ts';
 
 Deno.test('resolution prefers exact names, then prefixes, then substrings', () => {
     const store: Store = {
@@ -44,4 +44,12 @@ Deno.test('bookmark names reject commands and unsafe context filenames', () => {
         strictEqual(typeof validateName(name), 'string');
     }
     strictEqual(validateName('my-project_2.0'), null);
+});
+
+Deno.test('underRoot matches the root and its subtree, including a root of /', () => {
+    strictEqual(underRoot('/project', '/project'), true);
+    strictEqual(underRoot('/project/src', '/project'), true);
+    strictEqual(underRoot('/project2', '/project'), false);
+    strictEqual(underRoot('/', '/'), true);
+    strictEqual(underRoot('/etc', '/'), true);
 });

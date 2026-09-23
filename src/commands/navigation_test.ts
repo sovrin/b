@@ -112,6 +112,9 @@ Deno.test('missing or ambiguous queries do not update state or emit shell direct
     throws(() => {
         f.commands.enter('');
     }, /matches 2 bookmarks/);
+    throws(() => {
+        f.commands.enter('project/../other');
+    }, /leads outside/);
     deepStrictEqual(f.actions, []);
     deepStrictEqual(f.recent, []);
     strictEqual(f.saves(), 0);

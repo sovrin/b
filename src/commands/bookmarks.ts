@@ -1,9 +1,10 @@
-import { basename } from 'node:path';
+import { basename, relative } from 'node:path';
 
 import type { BookmarkRepository } from '../bookmarks/repository.ts';
+import type { ShellAction } from '../shell/protocol.ts';
 
-import { entries, resolveQuery, validateName } from '../bookmarks/model.ts';
-import { requireBookmark } from '../bookmarks/resolve.ts';
+import { entries, validateName } from '../bookmarks/model.ts';
+import { requireBookmark, requireExact } from '../bookmarks/resolve.ts';
 import { UserError } from '../errors.ts';
 import { bold, cyan, dim, green, info, ok, red, yellow } from '../output.ts';
 import { absPath, tildify } from '../paths.ts';
@@ -13,12 +14,14 @@ type BookmarkContexts = {
     forgetCtx(name: string): void;
     renameCtx(from: string, to: string): void;
     activeCtx(): string | null;
+    previousCtx(): string | null;
     rememberedCwd(name: string, root: string): string | null;
 };
 
 export function createBookmarkCommands(
     repository: BookmarkRepository,
     contexts: BookmarkContexts,
+    sync: (action: ShellAction) => void,
 ) {
     function cmdAdd(args: string[]): number {
         const force = takeFlag(args, '--force', '-f');
@@ -51,16 +54,31 @@ export function createBookmarkCommands(
     function cmdRm(args: string[]): number {
         if (args.length === 0) throw new UserError('usage: b rm <name>...');
         const store = repository.load();
-        for (const q of args) {
-            const res = resolveQuery(store, q.replace(/\/+$/, ''));
-            if (res.kind !== 'ok' || res.sub !== '') {
-                throw new UserError(`no bookmark "${q}"`);
-            }
-            delete store.bookmarks[res.name];
-            contexts.forgetCtx(res.name);
-            ok(`removed ${bold(res.name)}`);
-        }
+        // Resolve every name before touching anything, so one typo removes nothing.
+        const names = [
+            ...new Set(
+                args.map((q) => {
+                    return requireExact(store, q.replace(/\/+$/, ''));
+                }),
+            ),
+        ];
+        for (const name of names) delete store.bookmarks[name];
         repository.save(store);
+        for (const name of names) {
+            contexts.forgetCtx(name);
+            ok(`removed ${bold(name)}`);
+        }
+
+        const active = contexts.activeCtx();
+        const previous = contexts.previousCtx();
+        const gone = (n: string | null) => {
+            return n !== null && names.includes(n);
+        };
+        if (gone(active)) {
+            sync({ ctx: null, prev: gone(previous) ? null : previous });
+        } else if (gone(previous)) {
+            sync({ prev: null });
+        }
         return 0;
     }
 
@@ -68,18 +86,27 @@ export function createBookmarkCommands(
         const [from, to] = args;
         if (!from || !to) throw new UserError('usage: b mv <old> <new>');
         const store = repository.load();
-        const res = resolveQuery(store, from.replace(/\/+$/, ''));
-        if (res.kind !== 'ok' || res.sub !== '')
-            throw new UserError(`no bookmark "${from}"`);
+        const name = requireExact(store, from.replace(/\/+$/, ''));
         const bad = validateName(to);
         if (bad) throw new UserError(bad);
         if (Object.hasOwn(store.bookmarks, to))
             throw new UserError(`"${to}" already exists`);
-        store.bookmarks[to] = store.bookmarks[res.name]!;
-        delete store.bookmarks[res.name];
-        contexts.renameCtx(res.name, to);
+        const bm = store.bookmarks[name]!;
+        store.bookmarks[to] = bm;
+        delete store.bookmarks[name];
         repository.save(store);
-        ok(`${bold(res.name)} → ${bold(to)}`);
+        contexts.renameCtx(name, to);
+        ok(`${bold(name)} → ${bold(to)}`);
+
+        const renamed = (n: string | null) => {
+            return n === name ? to : n;
+        };
+        const previous = contexts.previousCtx();
+        if (contexts.activeCtx() === name) {
+            sync({ ctx: to, root: bm.path, prev: renamed(previous) });
+        } else if (previous === name) {
+            sync({ prev: to });
+        }
         return 0;
     }
 
@@ -117,7 +144,7 @@ export function createBookmarkCommands(
             const parked = contexts.rememberedCwd(name, bm.path);
             const at =
                 parked !== null && parked !== bm.path
-                    ? ` ${dim(`⌂ ${parked.slice(bm.path.length + 1)}`)}`
+                    ? ` ${dim(`⌂ ${relative(bm.path, parked)}`)}`
                     : '';
             console.log(`${marker} ${label}  ${path}${at}`);
         }
