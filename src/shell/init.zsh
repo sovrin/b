@@ -13,7 +13,7 @@ typeset -g _b_ctx_dir="${XDG_CONFIG_HOME:-$HOME/.config}/b/ctx"
 # add ~35ms to each prompt. Leaving the bookmark's subtree ends the context.
 _b_chpwd() {
   [[ -n $B_CTX && -n $B_CTX_ROOT ]] || return 0
-  if [[ $PWD == $B_CTX_ROOT || $PWD == $B_CTX_ROOT/* ]]; then
+  if [[ $PWD == $B_CTX_ROOT || $PWD == ${B_CTX_ROOT%/}/* ]]; then
     print -r -- $PWD >| $_b_ctx_dir/$B_CTX 2>/dev/null
   else
     export B_CTX_PREV=$B_CTX
@@ -25,7 +25,7 @@ add-zsh-hook chpwd _b_chpwd
 
 # The binary cannot change the parent shell's directory or environment, so this
 # wrapper does. With --from-shell the binary answers a request with a $'\x01b2'
-# header followed by `cd:`, `ctx:` and `root:` lines. Anything else is ordinary
+# header followed by `cd:`, `ctx:`, `root:` and `prev:` lines. Anything else is ordinary
 # output and gets reprinted verbatim.
 b() {
   emulate -L zsh
@@ -52,12 +52,13 @@ b() {
   lines=("${(@f)out}")
   shift lines
 
-  local target='' ctx='' root='' has_cd=0 has_ctx=0 l
+  local target='' ctx='' root='' prev='' has_cd=0 has_ctx=0 has_prev=0 l
   for l in "${lines[@]}"; do
     case $l in
       (cd:*)   target=${l#cd:};   has_cd=1 ;;
       (ctx:*)  ctx=${l#ctx:};     has_ctx=1 ;;
       (root:*) root=${l#root:} ;;
+      (prev:*) prev=${l#prev:};   has_prev=1 ;;
     esac
   done
 
@@ -74,10 +75,18 @@ b() {
       unset B_CTX B_CTX_ROOT
     fi
   fi
+  # An explicit previous context (after a rename or removal) overrides the above.
+  if (( has_prev )); then
+    if [[ -n $prev ]]; then
+      export B_CTX_PREV=$prev
+    else
+      unset B_CTX_PREV
+    fi
+  fi
 
   if (( has_cd )); then
     if ! cd -- "$target"; then
-      if (( has_ctx )); then
+      if (( has_ctx || has_prev )); then
         if [[ -n $old_ctx ]]; then
           export B_CTX=$old_ctx B_CTX_ROOT=$old_root
         else

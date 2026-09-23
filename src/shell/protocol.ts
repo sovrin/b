@@ -10,6 +10,8 @@ export type ShellAction = {
     ctx?: string | null;
     /** Root of the context being activated. */
     root?: string;
+    /** Context for `b =` to return to; null clears it; undefined leaves it alone. */
+    prev?: string | null;
 };
 
 function assertDir(path: string): void {
@@ -22,6 +24,14 @@ function assertDir(path: string): void {
         }
         throw err;
     }
+}
+
+/**
+ * Bring the wrapper's context variables in line after a bookmark changed. Only
+ * the wrapper can apply this, so without it there is nothing to say.
+ */
+export function syncShell(action: ShellAction, fromShell: boolean): void {
+    if (fromShell) emitShell(action, true);
 }
 
 /**
@@ -42,6 +52,7 @@ export function emitShell(action: ShellAction, fromShell: boolean): number {
     if (action.cd !== undefined) lines.push(`cd:${action.cd}`);
     if (action.ctx !== undefined) lines.push(`ctx:${action.ctx ?? ''}`);
     if (action.root !== undefined) lines.push(`root:${action.root}`);
+    if (action.prev !== undefined) lines.push(`prev:${action.prev ?? ''}`);
     Deno.stdout.writeSync(new TextEncoder().encode(lines.join('\n')));
     return 0;
 }

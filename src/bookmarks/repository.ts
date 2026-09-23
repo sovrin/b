@@ -2,6 +2,7 @@ import { dirname } from 'node:path';
 
 import type { Bookmark, Store } from './model.ts';
 
+import { UserError } from '../errors.ts';
 import { bookmarksFile } from '../paths.ts';
 
 /** Persistence required by bookmark commands; implementations may use files or memory. */
@@ -22,7 +23,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  */
 function parseStore(json: unknown, file: string): Store {
     if (!isRecord(json) || !isRecord(json.bookmarks)) {
-        throw new Error(
+        throw new UserError(
             `${file} has an unexpected shape (expected { bookmarks: { ... } })`,
         );
     }
@@ -60,7 +61,9 @@ export function load(): Store {
     try {
         json = JSON.parse(raw);
     } catch {
-        throw new Error(`${file} is not valid JSON`);
+        throw new UserError(
+            `${file} is not valid JSON — fix or remove it to start over`,
+        );
     }
     return parseStore(json, file);
 }

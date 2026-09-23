@@ -1,15 +1,9 @@
 import { dirname } from 'node:path';
 
-import type { Store } from './bookmarks/model.ts';
-
+import { type Store, underRoot } from './bookmarks/model.ts';
 import { ctxDir, ctxFile, recentFile } from './paths.ts';
 
 const RECENT_MAX = 20;
-
-/** True when `path` is the root itself or somewhere beneath it. */
-export function underRoot(path: string, root: string): boolean {
-    return path === root || path.startsWith(`${root}/`);
-}
 
 function readLine(file: string): string | null {
     try {
@@ -46,19 +40,46 @@ export function rememberCwd(name: string, cwd: string): void {
     writeAtomic(ctxFile(name), `${cwd}\n`);
 }
 
+/** Drop a context's remembered cwd and its place in the recent list. */
 export function forgetCtx(name: string): void {
     try {
         Deno.removeSync(ctxFile(name));
     } catch {
         // Never existed, which is the same outcome.
     }
+    const recent = readRecent();
+    if (recent.includes(name)) {
+        writeRecent(
+            recent.filter((n) => {
+                return n !== name;
+            }),
+        );
+    }
 }
 
+/** Carry a context's remembered cwd and recent-list position over to a new name. */
 export function renameCtx(from: string, to: string): void {
     try {
         Deno.renameSync(ctxFile(from), ctxFile(to));
     } catch {
-        // No memory to carry over.
+        // No memory to carry over; don't let a stale file speak for the new name.
+        try {
+            Deno.removeSync(ctxFile(to));
+        } catch {
+            // Nothing stale either.
+        }
+    }
+    const recent = readRecent();
+    if (recent.includes(from)) {
+        writeRecent(
+            recent
+                .filter((n) => {
+                    return n !== to;
+                })
+                .map((n) => {
+                    return n === from ? to : n;
+                }),
+        );
     }
 }
 
@@ -77,15 +98,18 @@ export function readRecent(): string[] {
     }
 }
 
+function writeRecent(names: string[]): void {
+    writeAtomic(recentFile(), `${names.slice(0, RECENT_MAX).join('\n')}\n`);
+}
+
 /** Move `name` to the front of the global recent list. */
 export function pushRecent(name: string): void {
-    const next = [
+    writeRecent([
         name,
         ...readRecent().filter((n) => {
             return n !== name;
         }),
-    ].slice(0, RECENT_MAX);
-    writeAtomic(recentFile(), `${next.join('\n')}\n`);
+    ]);
 }
 
 /** Drop names that are no longer bookmarks, so `b =` never lands nowhere. */

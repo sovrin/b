@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
+import { readMarks } from '../bookmarks/marks.ts';
+import { validateName } from '../bookmarks/model.ts';
 import { load } from '../bookmarks/repository.ts';
 import { UserError } from '../errors.ts';
 import { bold, cyan, dim, info, ok, warn } from '../output.ts';
@@ -7,7 +9,6 @@ import {
     bookmarksFile,
     configDir,
     initFile,
-    markNames,
     marksDir,
     tildify,
     zshrc,
@@ -105,12 +106,16 @@ export async function setup(opts: SetupOptions): Promise<number> {
     info(`  ${cyan('exec zsh')}   ${dim('# reload this shell')}`);
     info('');
     info(`Then try: ${cyan('b add')} here, ${cyan('b <TAB>')} to jump.`);
-    // Only nag about the old cd_mark store while something in it is still missing.
+    // Only nag about the old cd_mark store while something importable is still missing.
     let pending = 0;
     try {
         const known = load().bookmarks;
-        pending = markNames().filter((n) => {
-            return !Object.hasOwn(known, n);
+        pending = readMarks(marksDir()).filter((m) => {
+            return (
+                m.problem === null &&
+                validateName(m.name) === null &&
+                !Object.hasOwn(known, m.name)
+            );
         }).length;
     } catch {
         pending = 0;

@@ -62,7 +62,9 @@ export function patchStarship(dryRun: boolean): void {
             `${tildify(file)} looks generated — regenerating it will drop this block`,
         );
     }
-    if (/^format\s*=/m.test(text)) {
+    // Only a top-level format hides the segment; modules have their own `format`.
+    const topLevel = text.split(/^\s*\[/m)[0] ?? '';
+    if (/^\s*format\s*=/m.test(topLevel)) {
         info(
             `  ${dim('that config pins a top-level `format`, so add `$env_var` where you want the segment')}`,
         );

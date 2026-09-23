@@ -1,8 +1,13 @@
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
-import { entries, resolveQuery, type Store } from './bookmarks/model.ts';
+import {
+    entries,
+    resolveQuery,
+    type Store,
+    validateName,
+} from './bookmarks/model.ts';
 import { load } from './bookmarks/repository.ts';
-import { tildify } from './paths.ts';
+import { logicalCwd, tildify } from './paths.ts';
 
 /**
  * Machine-readable completion backend. The shell script stays dumb: it forwards
@@ -30,24 +35,28 @@ const SUBCOMMANDS: Cand[] = [
     ['doctor', 'check the installation'],
     ['starship', 'print the starship prompt segment'],
     ['completions', 'print the completion script'],
+    ['version', 'print version'],
     ['help', 'show usage'],
 ];
 
-/** Subcommands that take a bookmark name as their first argument. */
-const TAKES_NAME = new Set([
-    'rm',
-    'remove',
-    'del',
-    'mv',
-    'rename',
-    'path',
-    'get',
-]);
+/** Alternate spellings, completed like the command they stand for. */
+const ALIASES: Record<string, string> = {
+    a: 'add',
+    remove: 'rm',
+    del: 'rm',
+    rename: 'mv',
+    list: 'ls',
+    get: 'path',
+    'shell-init': 'completions',
+};
+
+/** Subcommands that take an existing bookmark name as their first argument. */
+const TAKES_NAME = new Set(['rm', 'mv', 'path']);
 
 const FLAGS: Record<string, Cand[]> = {
     add: [['--force', 'overwrite an existing bookmark']],
     ls: [['--paths', 'print bare paths only']],
-    rm: [],
+    import: [['--force', 'overwrite existing bookmarks']],
     setup: [
         ['--starship', "add the context segment to starship's config"],
         ['--force', 'rewrite files that already exist'],
@@ -157,9 +166,13 @@ export function complete(current: number, words: string[]): string[] {
     const before = words.slice(1, Math.max(idx, 1)).filter((w) => {
         return w.length > 0;
     });
-    const sub = before.find((w) => {
+    const typed = before.find((w) => {
         return !w.startsWith('-');
     });
+    const sub =
+        typed !== undefined && Object.hasOwn(ALIASES, typed)
+            ? ALIASES[typed]
+            : typed;
 
     // Flags, wherever the cursor is.
     if (word.startsWith('-')) {
@@ -178,9 +191,24 @@ export function complete(current: number, words: string[]): string[] {
         ]);
     }
 
-    const pos = before.filter((w) => {
+    const positional = before.filter((w) => {
         return !w.startsWith('-');
-    }).length; // 1 == completing arg after subcommand
+    });
+    const pos = positional.length; // 1 == completing arg after subcommand
+
+    // `rm` takes any number of names; offer the ones not already on the line.
+    if (sub === 'rm') {
+        const taken = new Set(positional.slice(1));
+        return emit('describe', [
+            [
+                'bookmarks',
+                'bookmark',
+                bookmarkCands(store).filter(([n]) => {
+                    return !taken.has(n);
+                }),
+            ],
+        ]);
+    }
 
     if (TAKES_NAME.has(sub) && pos === 1) {
         return emit('describe', [
@@ -188,11 +216,13 @@ export function complete(current: number, words: string[]): string[] {
         ]);
     }
 
-    if (sub === 'add' || sub === 'a') {
+    if (sub === 'add') {
         if (pos === 1) {
-            const suggestion = Deno.cwd().split('/').pop() ?? '';
+            const suggestion = basename(logicalCwd());
             const cands: Cand[] =
-                suggestion && !Object.hasOwn(store.bookmarks, suggestion)
+                suggestion &&
+                validateName(suggestion) === null &&
+                !Object.hasOwn(store.bookmarks, suggestion)
                     ? [[suggestion, 'name of the current directory']]
                     : [];
             return emit('describe', [['bookmarks', 'new name', cands]]);
@@ -202,7 +232,7 @@ export function complete(current: number, words: string[]): string[] {
 
     if (sub === 'import' && pos === 1) return ['@mode:dirs'];
 
-    if (sub === 'completions') {
+    if (sub === 'completions' && pos === 1) {
         return emit('describe', [
             ['shells', 'shell', [['zsh', 'zsh completion script']]],
         ]);

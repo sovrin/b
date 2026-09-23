@@ -1,9 +1,12 @@
 import { isAbsolute, join, resolve } from 'node:path';
 
+import { UserError } from './errors.ts';
+
 /** $HOME, read from the environment so no --allow-sys is needed. */
 export function homedir(): string {
     const h = Deno.env.get('HOME');
-    if (h === undefined || h.length === 0) throw new Error('$HOME is not set');
+    if (h === undefined || h.length === 0)
+        throw new UserError('$HOME is not set');
     return h;
 }
 
@@ -48,16 +51,6 @@ export function marksDir(): string {
     return custom && custom.length > 0 ? custom : join(homedir(), '.marks');
 }
 
-export function markNames(): string[] {
-    try {
-        return [...Deno.readDirSync(marksDir())].map((e) => {
-            return e.name;
-        });
-    } catch {
-        return [];
-    }
-}
-
 /** One file per context, holding its remembered cwd. */
 export function ctxDir(): string {
     return join(configDir(), 'ctx');
@@ -78,8 +71,28 @@ export function starshipConfig(): string {
     return join(homedir(), '.config', 'starship.toml');
 }
 
+/**
+ * The working directory as the shell spells it. getcwd() resolves symlinks, but
+ * zsh keeps the logical $PWD, and contexts compare against that.
+ */
+export function logicalCwd(): string {
+    const physical = Deno.cwd();
+    const pwd = Deno.env.get('PWD');
+    if (pwd === undefined || !isAbsolute(pwd) || pwd === physical)
+        return physical;
+    try {
+        const a = Deno.statSync(pwd);
+        const b = Deno.statSync(physical);
+        return a.dev === b.dev && a.ino !== null && a.ino === b.ino
+            ? resolve(pwd)
+            : physical;
+    } catch {
+        return physical;
+    }
+}
+
 /** Turn a user-supplied path into an absolute one. */
-export function absPath(p: string, cwd = Deno.cwd()): string {
+export function absPath(p: string, cwd = logicalCwd()): string {
     const expanded = untildify(p);
     return isAbsolute(expanded) ? resolve(expanded) : resolve(cwd, expanded);
 }

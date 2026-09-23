@@ -1,5 +1,6 @@
 import type { BookmarkRepository } from '../bookmarks/repository.ts';
 
+import { type Mark, readMarks } from '../bookmarks/marks.ts';
 import { validateName } from '../bookmarks/model.ts';
 import { UserError } from '../errors.ts';
 import { bold, cyan, dim, info, ok, warn } from '../output.ts';
@@ -16,36 +17,26 @@ export function importBookmarks(
     const force = takeFlag(args, '--force', '-f');
     const dir = args[0] === undefined ? marksDir() : absPath(args[0]);
 
-    let names: string[];
+    let marks: Mark[];
     try {
-        names = [...Deno.readDirSync(dir)]
-            .map((e) => {
-                return e.name;
-            })
-            .sort();
+        marks = readMarks(dir);
     } catch {
         throw new UserError(`nothing to import from ${tildify(dir)}`);
     }
-    if (names.length === 0) throw new UserError(`${tildify(dir)} is empty`);
+    if (marks.length === 0) throw new UserError(`${tildify(dir)} is empty`);
 
     const store = repository.load();
     let added = 0;
     let skipped = 0;
-    for (const name of names) {
-        const link = `${dir}/${name}`;
-        let target: string;
-        try {
-            target = absPath(Deno.readLinkSync(link), dir);
-        } catch {
-            try {
-                if (!Deno.statSync(link).isDirectory) continue;
-                target = link;
-            } catch {
-                continue;
-            }
+    for (const { name, target, problem } of marks) {
+        const bad = validateName(name);
+        if (bad !== null) {
+            warn(`skipped ${bold(name)} — ${bad}`);
+            skipped++;
+            continue;
         }
-        if (validateName(name) !== null) {
-            warn(`skipped ${bold(name)} — ${validateName(name)}`);
+        if (problem !== null) {
+            warn(`skipped ${bold(name)} — ${tildify(target)} is ${problem}`);
             skipped++;
             continue;
         }
